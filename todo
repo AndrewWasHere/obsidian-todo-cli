@@ -95,4 +95,4 @@ do
 done
 
 # Add to todo file
-echo "$entry" >> $todopath
+echo "$entry" >> "$todopath"
