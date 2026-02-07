@@ -1,0 +1,98 @@
+#! /usr/bin/env bash
+# Use: todo [--due <date>] [--tag <tag> ...] "task"
+
+# Resolves path to directory containing this file.
+# Copypasta from https://stackoverflow.com/questions/59895/how-do-i-get-the-directory-where-a-bash-script-is-located-from-within-the-script
+script_dir() {
+    local SOURCE_PATH="${BASH_SOURCE[0]}"
+    local SYMLINK_DIR
+    local SCRIPT_DIR
+    # Resolve symlinks recursively
+    while [ -L "$SOURCE_PATH" ]; do
+        # Get symlink directory
+        SYMLINK_DIR="$( cd -P "$( dirname "$SOURCE_PATH" )" >/dev/null 2>&1 && pwd )"
+        # Resolve symlink target (relative or absolute)
+        SOURCE_PATH="$(readlink "$SOURCE_PATH")"
+        # Check if candidate path is relative or absolute
+        if [[ $SOURCE_PATH != /* ]]; then
+            # Candidate path is relative, resolve to full path
+            SOURCE_PATH=$SYMLINK_DIR/$SOURCE_PATH
+        fi
+    done
+    # Get final script directory path from fully resolved source path
+    SCRIPT_DIR="$(cd -P "$( dirname "$SOURCE_PATH" )" >/dev/null 2>&1 && pwd)"
+    echo "$SCRIPT_DIR"  
+}
+
+# Verify dependencies.
+getopt --test > /dev/null && true
+if [[ $? -ne 4 ]]
+then
+    echo "Gnu getopt required."
+    exit 1
+fi
+
+# Load configuration settings.
+source "$(script_dir)/todo.conf"
+
+# Parse command line options. They will become the positional arguments.
+longopts=due:,tag:,help
+shortopts=d:,t:
+options=$(getopt --options=$shortopts --longoptions=$longopts --name="$0" -- "$@") || exit 2
+eval set -- "$options"
+
+declare -a tags
+while true
+do
+    case "$1" in
+        -d|--due)
+            due="$2"
+            shift 2
+            ;;
+        -t|--tag)
+            tags+=("$2")
+            shift 2
+            ;;
+        --help)
+            echo "Usage: $0 [-d|--due <date>] [[-t|--tag <key::value>] ...] <entry>"
+            echo "Where:"
+            echo "   <date> is an ISO-formatted date (YYYY-MM-DD)"
+            echo "   <key> is an Obsidian dataview-compatible field key"
+            echo "   <value> is an Obsidian dataview-compatible field value"
+            echo "   <entry> is a quoted string"
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Bad argument $1"
+            exit 3
+            ;;
+    esac
+done
+
+# Parse positional argument.
+if [[ $# -ne 1 ]]
+then
+    echo "$0: Entry missing"
+    echo "Try '$0 --help' for more information."
+    exit 4
+fi
+
+# Construct entry.
+entry="- [ ] $1"
+
+if [[ -v due ]]
+then
+    entry+=" [due::$due]"
+fi
+
+for t in ${tags[@]}
+do
+    entry+=" ($t)"
+done
+
+# Add to todo file
+echo "$entry" >> $todopath
