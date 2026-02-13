@@ -89,7 +89,7 @@ then
     entry+=" [due::$due]"
 fi
 
-for t in ${tags[@]}
+for t in "${tags[@]}"
 do
     entry+=" ($t)"
 done
